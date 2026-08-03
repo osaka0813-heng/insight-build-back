@@ -357,6 +357,33 @@ const outputSchema = {
   },
 };
 
+
+const PLACEHOLDER_TEXTS = new Set([
+  '无字段',
+  '沒有欄位',
+  '没有字段',
+  '未填写',
+  '未填寫',
+  '待补充',
+  '待補充',
+  '暂无内容',
+  '暫無內容',
+  'no field',
+  'no fields',
+  'missing field',
+  'not available',
+  'n/a',
+  '未入力',
+  '項目なし',
+  'フィールドなし',
+]);
+
+function isMeaningfulText(value) {
+  if (typeof value !== 'string') return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized.length > 0 && !PLACEHOLDER_TEXTS.has(normalized);
+}
+
 function findMissingPatternFields(generated) {
   const missing = [];
 
@@ -370,10 +397,7 @@ function findMissingPatternFields(generated) {
       'now',
       'conclusion',
     ]) {
-      if (
-        typeof pattern?.[field] !== 'string' ||
-        !pattern[field].trim()
-      ) {
+      if (!isMeaningfulText(pattern?.[field])) {
         missing.push(`${language}.pattern.${field}`);
       }
     }
@@ -398,7 +422,9 @@ async function requestWriter({
     'Every required string must contain meaningful non-whitespace text.',
     'Page 4 is mandatory in all three languages and must contain five distinct fields: title, before, shift, now, and conclusion.',
     'For Page 4: before describes the previous operating model; shift identifies the material change; now describes the current structure; conclusion states the system-level implication.',
-    'Never return an empty string for Page 4.',
+    'Never return an empty string or placeholder for Page 4.',
+    'Forbidden placeholder values include: 无字段, 没有字段, 待补充, 暂无内容, No field, Missing field, N/A, 未入力, 項目なし, フィールドなし.',
+    'If evidence is insufficient to write a Page 4 field, state a cautious evidence-grounded sentence rather than a placeholder.',
     'Do not invent facts, source URLs, publication dates, quotes, or numeric details.',
     'Use only facts present in the supplied candidate and sources.',
     'Do not place URLs, Markdown links, citations, or publisher names in narrative copy.',
@@ -410,7 +436,7 @@ async function requestWriter({
     'Write for a general audience; avoid internal engine jargon in user-facing copy.',
     'This is a draft. Do not claim it is published or approved.',
     retryReason
-      ? `A previous attempt was rejected because these fields were empty: ${retryReason}. Rewrite the complete draft and fill every one of them.`
+      ? `A previous attempt was rejected because these fields were empty or placeholders: ${retryReason}. Rewrite the complete draft with meaningful evidence-grounded sentences for every one of them.`
       : '',
   ]
     .filter(Boolean)
